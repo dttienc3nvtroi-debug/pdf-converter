@@ -1,38 +1,38 @@
+import os
 from flask import Flask, request, send_file
 from flask_cors import CORS
 from pdf2docx import Converter
-import os
-import tempfile
 
 app = Flask(__name__)
-CORS(app) # Cho phép Web từ bên ngoài gửi request tới
+CORS(app)  # Cho phép mọi trang web/file HTML gửi yêu cầu đến backend
 
-@app.route('/', methods=['GET'])
+@app.route('/')
 def home():
     return "Server PDF to Word Online đang hoạt động!"
 
 @app.route('/convert', methods=['POST'])
 def convert_pdf_to_docx():
     if 'file' not in request.files:
-        return {"error": "Không tìm thấy file!"}, 400
+        return "Không tìm thấy file tải lên", 400
     
     file = request.files['file']
-    temp_dir = tempfile.gettempdir()
-    pdf_path = os.path.join(temp_dir, file.filename)
-    docx_path = os.path.join(temp_dir, file.filename.replace('.pdf', '.docx'))
-    
+    if file.filename == '':
+        return "Chưa chọn file", 400
+
+    pdf_path = os.path.join('/tmp', file.filename)
+    docx_filename = os.path.splitext(file.filename)[0] + '.docx'
+    docx_path = os.path.join('/tmp', docx_filename)
+
     file.save(pdf_path)
-    
+
     try:
         cv = Converter(pdf_path)
         cv.convert(docx_path, start=0, end=None)
         cv.close()
-        return send_file(docx_path, as_attachment=True)
-    except Exception as e:
-        return {"error": str(e)}, 500
-    finally:
-        if os.path.exists(pdf_path): os.remove(pdf_path)
 
-if __name__ == '__main__':
-    port = int(os.environ.get('PORT', 5000))
-    app.run(host='0.0.0.0', port=port)
+        return send_file(docx_path, as_attachment=True, download_name=docx_filename)
+    except Exception as e:
+        return str(e), 500
+    finally:
+        if os.path.exists(pdf_path):
+            os.remove(pdf_path)
